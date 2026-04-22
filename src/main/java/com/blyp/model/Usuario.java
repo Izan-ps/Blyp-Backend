@@ -2,11 +2,16 @@ package com.blyp.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 @Entity
 @Table(name = "usuario")
-public class Usuario {
+public class Usuario implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -21,8 +26,9 @@ public class Usuario {
     @Column(name = "password_hash", nullable = false, length = 128)
     private String passwordHash;
 
-    @Column(name = "is_pro", nullable = false)
-    private boolean isPro = false;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Role role = Role.ROLE_USER;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -31,6 +37,27 @@ public class Usuario {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
     }
+
+    // ── UserDetails ───────────────────────────────────────────────────────────
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority(role.name()));
+    }
+
+    /** Spring Security usa este método para obtener la contraseña. */
+    @Override
+    public String getPassword() {
+        return passwordHash;
+    }
+
+    /** Spring Security usa el email como nombre de usuario (username). */
+    @Override
+    public String getUsername() {
+        return email;
+    }
+
+    // ── Getters / Setters ─────────────────────────────────────────────────────
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -44,8 +71,10 @@ public class Usuario {
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
 
-    public boolean isPro() { return isPro; }
-    public void setPro(boolean isPro) { this.isPro = isPro; }
+    public Role getRole() { return role; }
+    public void setRole(Role role) { this.role = role; }
+
+    public boolean isPro() { return role == Role.ROLE_PRO || role == Role.ROLE_ADMIN; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
