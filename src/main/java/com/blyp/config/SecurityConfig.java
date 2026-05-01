@@ -32,40 +32,28 @@ public class SecurityConfig {
             .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-
-                // ── Rutas públicas ────────────────────────────────────────────
                 .requestMatchers(
                     "/api/auth/**",
                     "/api/contacto",
                     "/h2-console/**"
                 ).permitAll()
-
-                // ── Solo admin ────────────────────────────────────────────────
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
-
-                // ── Pro y admin ───────────────────────────────────────────────
                 .requestMatchers(
                     "/api/gastos/**",
                     "/api/recetas/**",
                     "/api/pagos/**"
                 ).hasAnyRole("PRO", "ADMIN")
-
-                // ── Cualquier usuario autenticado ─────────────────────────────
                 .requestMatchers(
                     "/api/nevera/**",
                     "/api/listas/**",
                     "/api/cuenta/**",
                     "/api/mensajes/**"
                 ).hasAnyRole("USER", "PRO", "ADMIN")
-
-                // ── El resto requiere autenticación ───────────────────────────
                 .anyRequest().authenticated()
             )
-            // Sin sesiones — JWT es stateless
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
-            // Necesario para que la consola H2 funcione en dev
             .headers(headers -> headers
                 .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
             )

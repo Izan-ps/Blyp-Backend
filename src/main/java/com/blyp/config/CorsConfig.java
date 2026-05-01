@@ -15,10 +15,9 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // En dev: Vite corre en 5173. En prod se sobreescribe via variable de entorno.
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
-                "http://localhost:4173"   // vite preview
+                "http://localhost:4173"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));

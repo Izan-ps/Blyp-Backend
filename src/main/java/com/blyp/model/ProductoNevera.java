@@ -24,6 +24,9 @@ public class ProductoNevera {
     @Column(length = 100)
     private String categoria;
 
+    @Column(name = "codigo_barras", length = 50)
+    private String codigoBarras;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
@@ -38,4 +41,7 @@ public class ProductoNevera {
 
     public String getCategoria() { return categoria; }
     public void setCategoria(String categoria) { this.categoria = categoria; }
+
+    public String getCodigoBarras() { return codigoBarras; }
+    public void setCodigoBarras(String codigoBarras) { this.codigoBarras = codigoBarras; }
 }

@@ -47,7 +47,6 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        // Lanza BadCredentialsException si las credenciales son incorrectas
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );

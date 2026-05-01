@@ -8,4 +8,6 @@ import java.util.UUID;
 
 public interface ProductoNeveraRepository extends JpaRepository<ProductoNevera, UUID> {
     List<ProductoNevera> findByNeveraId(UUID neveraId);
+    java.util.Optional<ProductoNevera> findByNeveraIdAndCodigoBarras(UUID neveraId, String codigoBarras);
+    java.util.Optional<ProductoNevera> findByNeveraIdAndNombreIgnoreCase(UUID neveraId, String nombre);
 }

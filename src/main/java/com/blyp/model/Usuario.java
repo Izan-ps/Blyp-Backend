@@ -38,26 +38,20 @@ public class Usuario implements UserDetails {
         createdAt = LocalDateTime.now();
     }
 
-    // ── UserDetails ───────────────────────────────────────────────────────────
-
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority(role.name()));
     }
 
-    /** Spring Security usa este método para obtener la contraseña. */
     @Override
     public String getPassword() {
         return passwordHash;
     }
 
-    /** Spring Security usa el email como nombre de usuario (username). */
     @Override
     public String getUsername() {
         return email;
     }
-
-    // ── Getters / Setters ─────────────────────────────────────────────────────
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
