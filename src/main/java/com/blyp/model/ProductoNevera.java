@@ -27,6 +27,9 @@ public class ProductoNevera {
     @Column(name = "codigo_barras", length = 50)
     private String codigoBarras;
 
+    @Column(name = "stock_minimo")
+    private Integer stockMinimo;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
@@ -44,4 +47,7 @@ public class ProductoNevera {
 
     public String getCodigoBarras() { return codigoBarras; }
     public void setCodigoBarras(String codigoBarras) { this.codigoBarras = codigoBarras; }
+
+    public Integer getStockMinimo() { return stockMinimo; }
+    public void setStockMinimo(Integer stockMinimo) { this.stockMinimo = stockMinimo; }
 }

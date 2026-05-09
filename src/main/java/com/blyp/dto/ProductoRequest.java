@@ -19,6 +19,9 @@ public class ProductoRequest {
     @Size(max = 50)
     private String codigoBarras;
 
+    @Min(value = 1, message = "El mínimo debe ser al menos 1")
+    private Integer stockMinimo;
+
     public String getNombre()    { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }
 
@@ -30,4 +33,7 @@ public class ProductoRequest {
 
     public String getCodigoBarras() { return codigoBarras; }
     public void setCodigoBarras(String codigoBarras) { this.codigoBarras = codigoBarras; }
+
+    public Integer getStockMinimo() { return stockMinimo; }
+    public void setStockMinimo(Integer stockMinimo) { this.stockMinimo = stockMinimo; }
 }

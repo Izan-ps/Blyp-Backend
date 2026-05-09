@@ -35,7 +35,8 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/auth/**",
                     "/api/contacto",
-                    "/h2-console/**"
+                    "/h2-console/**",
+                    "/error"
                 ).permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers(
@@ -47,7 +48,8 @@ public class SecurityConfig {
                     "/api/nevera/**",
                     "/api/listas/**",
                     "/api/cuenta/**",
-                    "/api/mensajes/**"
+                    "/api/mensajes/**",
+                    "/api/tickets/**"
                 ).hasAnyRole("USER", "PRO", "ADMIN")
                 .anyRequest().authenticated()
             )

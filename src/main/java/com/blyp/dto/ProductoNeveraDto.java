@@ -9,13 +9,15 @@ public class ProductoNeveraDto {
     private int cantidad;
     private String categoria;
     private String codigoBarras;
+    private Integer stockMinimo;
 
-    public ProductoNeveraDto(UUID id, String nombre, int cantidad, String categoria, String codigoBarras) {
-        this.id          = id;
-        this.nombre      = nombre;
-        this.cantidad    = cantidad;
-        this.categoria   = categoria;
+    public ProductoNeveraDto(UUID id, String nombre, int cantidad, String categoria, String codigoBarras, Integer stockMinimo) {
+        this.id           = id;
+        this.nombre       = nombre;
+        this.cantidad     = cantidad;
+        this.categoria    = categoria;
         this.codigoBarras = codigoBarras;
+        this.stockMinimo  = stockMinimo;
     }
 
     public UUID getId()             { return id; }
@@ -23,4 +25,5 @@ public class ProductoNeveraDto {
     public int getCantidad()        { return cantidad; }
     public String getCategoria()    { return categoria; }
     public String getCodigoBarras() { return codigoBarras; }
+    public Integer getStockMinimo() { return stockMinimo; }
 }

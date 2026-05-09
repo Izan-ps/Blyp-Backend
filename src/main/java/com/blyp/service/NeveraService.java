@@ -8,12 +8,14 @@ import com.blyp.model.Usuario;
 import com.blyp.repository.NeveraRepository;
 import com.blyp.repository.ProductoNeveraRepository;
 import com.blyp.repository.UsuarioRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -22,20 +24,23 @@ public class NeveraService {
     private final NeveraRepository neveraRepository;
     private final ProductoNeveraRepository productoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final MensajeService mensajeService;
 
     public NeveraService(NeveraRepository neveraRepository,
                          ProductoNeveraRepository productoRepository,
-                         UsuarioRepository usuarioRepository) {
+                         UsuarioRepository usuarioRepository,
+                         MensajeService mensajeService) {
         this.neveraRepository  = neveraRepository;
         this.productoRepository = productoRepository;
         this.usuarioRepository  = usuarioRepository;
+        this.mensajeService    = mensajeService;
     }
 
     public List<ProductoNeveraDto> listarProductos(String email) {
         Nevera nevera = obtenerOCrearNevera(email);
         return productoRepository.findByNeveraId(nevera.getId())
                 .stream()
-                .map(p -> new ProductoNeveraDto(p.getId(), p.getNombre(), p.getCantidad(), p.getCategoria(), p.getCodigoBarras()))
+                .map(p -> new ProductoNeveraDto(p.getId(), p.getNombre(), p.getCantidad(), p.getCategoria(), p.getCodigoBarras(), p.getStockMinimo()))
                 .toList();
     }
 
@@ -50,7 +55,7 @@ public class NeveraService {
             ProductoNevera producto = existente.get();
             producto.setCantidad(producto.getCantidad() + request.getCantidad());
             ProductoNevera guardado = productoRepository.save(producto);
-            return new ProductoNeveraDto(guardado.getId(), guardado.getNombre(), guardado.getCantidad(), guardado.getCategoria(), guardado.getCodigoBarras());
+            return new ProductoNeveraDto(guardado.getId(), guardado.getNombre(), guardado.getCantidad(), guardado.getCategoria(), guardado.getCodigoBarras(), guardado.getStockMinimo());
         }
 
         ProductoNevera producto = new ProductoNevera();
@@ -61,7 +66,7 @@ public class NeveraService {
         producto.setCodigoBarras(request.getCodigoBarras());
 
         ProductoNevera guardado = productoRepository.save(producto);
-        return new ProductoNeveraDto(guardado.getId(), guardado.getNombre(), guardado.getCantidad(), guardado.getCategoria(), guardado.getCodigoBarras());
+        return new ProductoNeveraDto(guardado.getId(), guardado.getNombre(), guardado.getCantidad(), guardado.getCategoria(), guardado.getCodigoBarras(), guardado.getStockMinimo());
     }
 
     @Transactional
@@ -71,18 +76,29 @@ public class NeveraService {
 
         verificarPropietario(producto, email);
 
+        Integer cantidadAnterior = producto.getCantidad();
         if (request.getNombre() != null) producto.setNombre(request.getNombre());
         if (request.getCategoria() != null) producto.setCategoria(request.getCategoria());
         producto.setCantidad(request.getCantidad());
+        producto.setStockMinimo(request.getStockMinimo());
 
         ProductoNevera guardado = productoRepository.save(producto);
-        return new ProductoNeveraDto(guardado.getId(), guardado.getNombre(), guardado.getCantidad(), guardado.getCategoria(), guardado.getCodigoBarras());
+
+        Integer minimo = guardado.getStockMinimo();
+        if (minimo != null && guardado.getCantidad() <= minimo && guardado.getCantidad() < cantidadAnterior) {
+            Usuario usuario = guardado.getNevera().getUsuario();
+            String texto = "Stock bajo: solo " + guardado.getCantidad() + " ud"
+                    + (guardado.getCantidad() != 1 ? "s" : "") + " de " + guardado.getNombre() + ".";
+            mensajeService.crear(usuario, texto, "warning");
+        }
+
+        return new ProductoNeveraDto(guardado.getId(), guardado.getNombre(), guardado.getCantidad(), guardado.getCategoria(), guardado.getCodigoBarras(), guardado.getStockMinimo());
     }
 
     public java.util.Optional<ProductoNeveraDto> buscarPorCodigoBarras(String email, String codigo) {
         Nevera nevera = obtenerOCrearNevera(email);
         return productoRepository.findByNeveraIdAndCodigoBarras(nevera.getId(), codigo)
-                .map(p -> new ProductoNeveraDto(p.getId(), p.getNombre(), p.getCantidad(), p.getCategoria(), p.getCodigoBarras()));
+                .map(p -> new ProductoNeveraDto(p.getId(), p.getNombre(), p.getCantidad(), p.getCategoria(), p.getCodigoBarras(), p.getStockMinimo()));
     }
 
     @Transactional
@@ -98,12 +114,17 @@ public class NeveraService {
         Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no encontrado"));
 
-        return neveraRepository.findByUsuarioId(usuario.getId())
-                .orElseGet(() -> {
-                    Nevera nueva = new Nevera();
-                    nueva.setUsuario(usuario);
-                    return neveraRepository.save(nueva);
-                });
+        Optional<Nevera> existente = neveraRepository.findByUsuarioId(usuario.getId());
+        if (existente.isPresent()) return existente.get();
+
+        try {
+            Nevera nueva = new Nevera();
+            nueva.setUsuario(usuario);
+            return neveraRepository.saveAndFlush(nueva);
+        } catch (DataIntegrityViolationException e) {
+            return neveraRepository.findByUsuarioId(usuario.getId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error al crear la nevera"));
+        }
     }
 
     private void verificarPropietario(ProductoNevera producto, String email) {
