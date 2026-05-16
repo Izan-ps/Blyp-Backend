@@ -35,9 +35,9 @@ public class TicketAnalisisService {
     @Value("${groq.api-key:}")
     private String apiKey;
 
-    private static final String MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+    private static final String MODEL_TEXT   = "llama-3.3-70b-versatile";
+    private static final String MODEL_VISION = "meta-llama/llama-4-scout-17b-16e-instruct";
 
-    // Prompt para texto extraído de PDF (estructurado, muy preciso)
     private static final String TEXT_PROMPT =
         "Analiza el siguiente texto de un ticket de compra español.\n\n" +
         "CRITERIO DE INCLUSIÓN: incluye SOLO los productos que una persona come o bebe directamente. " +
@@ -51,7 +51,22 @@ public class TicketAnalisisService {
         "- Champú, acondicionador, mascarilla capilar → NO son comida\n" +
         "- Detergente, suavizante, lejía, limpiador → NO son comida\n" +
         "- Papel higiénico, toallitas, compresas, pañales → NO son comida\n" +
-        "- Bolsas de plástico, tabaco, pilas, prensa → NO son comida\n\n" +
+        "- Rollo de cocina, papel de cocina, papel de aluminio, film → NO son comida\n" +
+        "- Bolsa de basura, bolsa de supermercado, bolsa reutilizable → NO son comida\n" +
+        "- Tabaco, pilas, prensa, revista → NO son comida\n\n" +
+        "ABREVIATURAS: los tickets usan nombres truncados. Deduce el producto real. " +
+        "Ejemplos: 'R. COCINA' → Rollo de cocina (EXCLUIR); 'B. BASUR' → Bolsa de basura (EXCLUIR); " +
+        "'B. EROSKI' → Bolsa Eroski (EXCLUIR); 'CACH. CASC.' → Cacahuete; 'CERV. LAT.' → Cerveza.\n\n" +
+        "IDENTIFICACIÓN CORRECTA — errores frecuentes:\n" +
+        "- PASTA: las marcas de pasta (Barilla, Garofalo, Gallo, De Cecco…) siempre van acompañadas de " +
+        "una forma italiana. Cualquier palabra italiana que nombre una forma de pasta — reconocible porque " +
+        "termina en -ale, -ini, -etti, -oni, -ine, -elle, -ette, -elli, -illi, -acci o suena a forma " +
+        "italiana (elicoidale, penne, rigatoni, fusilli, spaghetti, farfalle, tagliatelle, orecchiette, " +
+        "tortiglioni, sedanini, ditalini…) — es 'Pasta', independientemente de cómo esté escrito o truncado.\n" +
+        "- Cebolla, ajo, puerro, chalota → son VERDURAS, no especias → 'Cebolla', 'Ajo', 'Puerro'\n" +
+        "- Pan de barra, pan de molde, pan integral, baguette → 'Pan' (NUNCA 'Dulce')\n" +
+        "- Solo son 'Dulce': galletas, magdalenas, bizcocho, donuts, croissant, palmera\n" +
+        "- Berlina, napolitana, ensaimada → 'Bollería' (no 'Pan' ni 'Dulce')\n\n" +
         "REGLAS DE EXTRACCIÓN:\n" +
         "1. CANTIDAD: el primer número entero de la línea es la cantidad de unidades. " +
         "Ejemplos: '2 ZANAHORIA 1/2 KG 0,89 1,78' → cantidad=2; '2 JUDIA PLANA 1/2 K 1,20 2,40' → cantidad=2. " +
@@ -61,12 +76,20 @@ public class TicketAnalisisService {
         "3. Si cantidad=1 y solo hay un precio, ese es precio_unidad.\n" +
         "4. Productos por peso ('0,520kg 7,49Eu/kg 3,89'): cantidad=1, precio_unidad=importe total (3,89).\n" +
         "5. DESCUENTOS al final ('1 TOMATE FRITO -0,95'): precio_unidad=(EUROS/TOT - |descuento|)÷cantidad.\n" +
-        "6. NOMBRE: nombre genérico en español, sin marca ni tamaño, formato título. Ejemplos: 'Leche desnatada', 'Judía plana', 'Pechuga de pollo'.\n\n" +
-        "Responde ÚNICAMENTE con un array JSON válido, sin texto, sin markdown. Si no hay alimentos, responde [].\n" +
-        "Formato: [{\"nombre\":\"...\",\"cantidad\":N,\"precio_unidad\":X.XX}]\n\n" +
+        "6. NOMBRE y CATEGORIA (mismo valor para los dos): usa el nombre común del producto en español, " +
+        "sin marca, sin variedad botánica, sin adjetivo de calidad. Máximo 2 palabras.\n" +
+        "   NIVEL CORRECTO: el nombre que cualquier persona diría en casa ('Lechuga', 'Tomate', 'Leche', 'Yogur', 'Cerveza').\n" +
+        "   NUNCA uses palabras de categoría amplia como 'Lácteo', 'Verdura', 'Carne', 'Bebida' — usa el producto concreto.\n" +
+        "   NUNCA uses nombres de variedad o cultivar: 'Batavia'→'Lechuga', 'Garofalo'→'Pasta', 'Piel de sapo'→'Melón', 'Angus'→'Ternera'.\n" +
+        "   NUNCA uses adjetivos de calidad/procedencia: 'Selección', 'Premium', 'Especial', 'Bio', 'ECO', 'De la abuela'.\n" +
+        "   Aplica el MISMO nivel de generalización a todos los productos del ticket.\n" +
+        "   Si el ticket tiene abreviaturas, deduce el producto real antes de aplicar esta regla.\n\n" +
+        "TIENDA: busca el nombre del supermercado o tienda en el encabezado del ticket. " +
+        "Escribe solo el nombre comercial (ej: 'Mercadona', 'Eroski', 'Lidl'). Si no puedes identificarlo, usa null.\n\n" +
+        "Responde ÚNICAMENTE con un objeto JSON válido, sin texto, sin markdown. Si no hay alimentos en items, usa [].\n" +
+        "Formato: {\"tienda\":\"...\",\"items\":[{\"nombre\":\"...\",\"cantidad\":N,\"precio_unidad\":X.XX,\"categoria\":\"...\"}]}\n\n" +
         "TEXTO DEL TICKET:\n";
 
-    // Prompt para imágenes (fotos de tickets en papel)
     private static final String VISION_PROMPT =
         "Analiza esta imagen de un ticket de compra español.\n\n" +
         "CRITERIO DE INCLUSIÓN: incluye SOLO los productos que una persona come o bebe directamente. " +
@@ -80,7 +103,22 @@ public class TicketAnalisisService {
         "- Champú, acondicionador, mascarilla capilar → NO son comida\n" +
         "- Detergente, suavizante, lejía, limpiador → NO son comida\n" +
         "- Papel higiénico, toallitas, compresas, pañales → NO son comida\n" +
-        "- Bolsas de plástico, tabaco, pilas, prensa → NO son comida\n\n" +
+        "- Rollo de cocina, papel de cocina, papel de aluminio, film → NO son comida\n" +
+        "- Bolsa de basura, bolsa de supermercado, bolsa reutilizable → NO son comida\n" +
+        "- Tabaco, pilas, prensa, revista → NO son comida\n\n" +
+        "ABREVIATURAS: los tickets usan nombres truncados. Deduce el producto real. " +
+        "Ejemplos: 'R. COCINA' → Rollo de cocina (EXCLUIR); 'B. BASUR' → Bolsa de basura (EXCLUIR); " +
+        "'B. EROSKI' → Bolsa Eroski (EXCLUIR); 'CACH. CASC.' → Cacahuete; 'CERV. LAT.' → Cerveza.\n\n" +
+        "IDENTIFICACIÓN CORRECTA — errores frecuentes:\n" +
+        "- PASTA: las marcas de pasta (Barilla, Garofalo, Gallo, De Cecco…) siempre van acompañadas de " +
+        "una forma italiana. Cualquier palabra italiana que nombre una forma de pasta — reconocible porque " +
+        "termina en -ale, -ini, -etti, -oni, -ine, -elle, -ette, -elli, -illi, -acci o suena a forma " +
+        "italiana (elicoidale, penne, rigatoni, fusilli, spaghetti, farfalle, tagliatelle, orecchiette, " +
+        "tortiglioni, sedanini, ditalini…) — es 'Pasta', independientemente de cómo esté escrito o truncado.\n" +
+        "- Cebolla, ajo, puerro, chalota → son VERDURAS, no especias → 'Cebolla', 'Ajo', 'Puerro'\n" +
+        "- Pan de barra, pan de molde, pan integral, baguette → 'Pan' (NUNCA 'Dulce')\n" +
+        "- Solo son 'Dulce': galletas, magdalenas, bizcocho, donuts, croissant, palmera\n" +
+        "- Berlina, napolitana, ensaimada → 'Bollería' (no 'Pan' ni 'Dulce')\n\n" +
         "REGLAS DE EXTRACCIÓN:\n" +
         "1. CANTIDAD: el primer número entero de la línea es la cantidad de unidades. " +
         "Ejemplos: '2 ZANAHORIA 1/2 KG ...' → cantidad=2; '2 JUDIA PLANA 1/2 K ...' → cantidad=2. " +
@@ -88,9 +126,18 @@ public class TicketAnalisisService {
         "2. PRECIO_UNIDAD: si hay dos precios en la línea, el primero es precio_unidad (nunca el total).\n" +
         "3. Productos por peso: cantidad=1, precio_unidad=importe total de la línea.\n" +
         "4. DESCUENTOS al final del ticket: réstalos del total y recalcula precio_unidad.\n" +
-        "5. NOMBRE: nombre genérico en español, sin marca ni tamaño, formato título. Ejemplos: 'Leche desnatada', 'Judía plana', 'Pechuga de pollo'.\n\n" +
-        "Responde ÚNICAMENTE con un array JSON válido, sin texto, sin markdown. Si no hay alimentos, responde [].\n" +
-        "Formato: [{\"nombre\":\"...\",\"cantidad\":N,\"precio_unidad\":X.XX}]";
+        "5. NOMBRE y CATEGORIA (mismo valor para los dos): usa el nombre común del producto en español, " +
+        "sin marca, sin variedad botánica, sin adjetivo de calidad. Máximo 2 palabras.\n" +
+        "   NIVEL CORRECTO: el nombre que cualquier persona diría en casa ('Lechuga', 'Tomate', 'Leche', 'Yogur', 'Cerveza').\n" +
+        "   NUNCA uses palabras de categoría amplia como 'Lácteo', 'Verdura', 'Carne', 'Bebida' — usa el producto concreto.\n" +
+        "   NUNCA uses nombres de variedad o cultivar: 'Batavia'→'Lechuga', 'Garofalo'→'Pasta', 'Piel de sapo'→'Melón', 'Angus'→'Ternera'.\n" +
+        "   NUNCA uses adjetivos de calidad/procedencia: 'Selección', 'Premium', 'Especial', 'Bio', 'ECO', 'De la abuela'.\n" +
+        "   Aplica el MISMO nivel de generalización a todos los productos del ticket.\n" +
+        "   Si el ticket tiene abreviaturas, deduce el producto real antes de aplicar esta regla.\n\n" +
+        "TIENDA: busca el nombre del supermercado o tienda en el encabezado del ticket. " +
+        "Escribe solo el nombre comercial (ej: 'Mercadona', 'Eroski', 'Lidl'). Si no puedes identificarlo, usa null.\n\n" +
+        "Responde ÚNICAMENTE con un objeto JSON válido, sin texto, sin markdown. Si no hay alimentos en items, usa [].\n" +
+        "Formato: {\"tienda\":\"...\",\"items\":[{\"nombre\":\"...\",\"cantidad\":N,\"precio_unidad\":X.XX,\"categoria\":\"...\"}]}";
 
     public TicketAnalisisService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
@@ -99,7 +146,7 @@ public class TicketAnalisisService {
                 .build();
     }
 
-    public List<Map<String, Object>> analizarTicket(String imagenBase64) {
+    public Map<String, Object> analizarTicket(String imagenBase64) {
         if (apiKey == null || apiKey.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "Servicio de análisis no configurado");
@@ -118,14 +165,12 @@ public class TicketAnalisisService {
             base64Data = imagenBase64.substring(comma + 1);
         }
 
-        // PDF → extraer texto (mucho más preciso que convertir a imagen)
         if ("application/pdf".equals(mimeType)) {
             String texto = extractPdfText(base64Data);
             if (texto != null && texto.length() > 50) {
                 log.debug("PDF con texto extraído ({} chars), usando prompt de texto", texto.length());
-                return callGroq(List.of(Map.of("type", "text", "text", TEXT_PROMPT + texto)));
+                return callGroq(MODEL_TEXT, List.of(Map.of("type", "text", "text", TEXT_PROMPT + texto)));
             }
-            // PDF sin texto (escaneado) → convertir a imagen como fallback
             log.debug("PDF sin texto extraíble, convirtiendo a imagen");
             base64Data = pdfFirstPageToJpeg(base64Data);
             mimeType   = "image/jpeg";
@@ -137,15 +182,15 @@ public class TicketAnalisisService {
         }
 
         String dataUrl = "data:" + mimeType + ";base64," + base64Data;
-        return callGroq(List.of(
+        return callGroq(MODEL_VISION, List.of(
                 Map.of("type", "image_url", "image_url", Map.of("url", dataUrl)),
                 Map.of("type", "text", "text", VISION_PROMPT)
         ));
     }
 
-    private List<Map<String, Object>> callGroq(List<Map<String, Object>> content) {
+    private Map<String, Object> callGroq(String model, List<Map<String, Object>> content) {
         Map<String, Object> requestBody = Map.of(
-                "model", MODEL,
+                "model", model,
                 "messages", List.of(Map.of("role", "user", "content", content)),
                 "temperature", 0,
                 "max_tokens", 2048
@@ -163,13 +208,13 @@ public class TicketAnalisisService {
             Map<?, ?> message = (Map<?, ?>) ((Map<?, ?>) choices.get(0)).get("message");
             String text = (String) message.get("content");
 
-            int start = text.indexOf('[');
-            int end   = text.lastIndexOf(']') + 1;
-            if (start == -1 || end == 0) return List.of();
+            int start = text.indexOf('{');
+            int end   = text.lastIndexOf('}') + 1;
+            if (start == -1 || end == 0) return Map.of("tienda", null, "items", List.of());
 
             return objectMapper.readValue(
                     text.substring(start, end),
-                    new TypeReference<List<Map<String, Object>>>() {}
+                    new TypeReference<Map<String, Object>>() {}
             );
         } catch (ResponseStatusException rse) {
             throw rse;

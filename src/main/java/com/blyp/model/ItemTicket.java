@@ -19,6 +19,9 @@ public class ItemTicket {
     @Column(nullable = false, length = 255)
     private String nombre;
 
+    @Column(length = 100)
+    private String categoria;
+
     @Column(nullable = false)
     private int cantidad = 1;
 
@@ -39,4 +42,7 @@ public class ItemTicket {
 
     public BigDecimal getPrecioUnidad() { return precioUnidad; }
     public void setPrecioUnidad(BigDecimal precioUnidad) { this.precioUnidad = precioUnidad; }
+
+    public String getCategoria() { return categoria; }
+    public void setCategoria(String categoria) { this.categoria = categoria; }
 }

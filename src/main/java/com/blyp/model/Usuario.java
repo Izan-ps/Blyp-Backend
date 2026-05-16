@@ -33,6 +33,12 @@ public class Usuario implements UserDetails {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(nullable = false)
+    private boolean verificado = false;
+
+    @Column(name = "has2fa", nullable = false)
+    private boolean has2fa = false;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -72,4 +78,10 @@ public class Usuario implements UserDetails {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public boolean isVerificado() { return verificado; }
+    public void setVerificado(boolean verificado) { this.verificado = verificado; }
+
+    public boolean isHas2fa() { return has2fa; }
+    public void setHas2fa(boolean has2fa) { this.has2fa = has2fa; }
 }

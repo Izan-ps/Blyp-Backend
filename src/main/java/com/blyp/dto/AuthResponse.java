@@ -1,5 +1,7 @@
 package com.blyp.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class AuthResponse {
 
     private String token;
@@ -23,6 +25,7 @@ public class AuthResponse {
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
 
+    @JsonProperty("isPro")
     public boolean isPro() { return isPro; }
     public void setPro(boolean isPro) { this.isPro = isPro; }
 }

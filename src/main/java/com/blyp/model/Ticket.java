@@ -22,6 +22,9 @@ public class Ticket {
     @Column(name = "imagen_url", length = 500)
     private String imagenUrl;
 
+    @Column(length = 100)
+    private String tienda;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
@@ -33,4 +36,7 @@ public class Ticket {
 
     public String getImagenUrl() { return imagenUrl; }
     public void setImagenUrl(String imagenUrl) { this.imagenUrl = imagenUrl; }
+
+    public String getTienda() { return tienda; }
+    public void setTienda(String tienda) { this.tienda = tienda; }
 }

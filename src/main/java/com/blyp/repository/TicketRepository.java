@@ -9,5 +9,6 @@ import java.util.UUID;
 
 public interface TicketRepository extends JpaRepository<Ticket, UUID> {
     List<Ticket> findByUsuarioIdOrderByFechaDesc(UUID usuarioId);
-    List<Ticket> findByUsuarioIdAndFechaBetween(UUID usuarioId, LocalDate desde, LocalDate hasta);
+    List<Ticket> findTop10ByUsuarioIdAndFechaBetweenOrderByFechaDesc(UUID usuarioId, LocalDate desde, LocalDate hasta);
+    long countByUsuarioIdAndFechaBetween(UUID usuarioId, LocalDate desde, LocalDate hasta);
 }

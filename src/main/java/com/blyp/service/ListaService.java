@@ -84,11 +84,17 @@ public class ListaService {
         return neveraRepository.findByUsuarioId(usuario.getId())
                 .map(nevera -> productoNeveraRepository.findByNeveraId(nevera.getId())
                         .stream()
-                        .filter(p -> p.getStockMinimo() != null && p.getCantidad() <= p.getStockMinimo())
-                        .map(p -> Map.<String, Object>of(
-                                "nombre", p.getNombre(),
-                                "cantidad", p.getStockMinimo() - p.getCantidad() + 1
-                        ))
+                        .filter(p -> {
+                            int minimo = p.getStockMinimo() != null ? p.getStockMinimo() : 1;
+                            return p.getCantidad() <= minimo;
+                        })
+                        .map(p -> {
+                            int minimo = p.getStockMinimo() != null ? p.getStockMinimo() : 1;
+                            return Map.<String, Object>of(
+                                    "nombre", p.getNombre(),
+                                    "cantidad", minimo - p.getCantidad() + 1
+                            );
+                        })
                         .toList())
                 .orElse(List.of());
     }
